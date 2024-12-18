@@ -1,4 +1,4 @@
-VERSION = "HP_V0.03"
+VERSION = "HP_V0.03_Sui"
 
 import machine
 import binascii
@@ -14,12 +14,10 @@ import gc
 from machine import WDT
 import os
 
-# 2024/12/9_HP_V0.03, Thomas 
-#  1. 修改GPIO_CardReader_PAYOUT的中斷副程式名稱
-#  2. 修改GPIO_CardReader_PAYOUT的中斷副程式，Hi pules時間寬度要夠大，Lo pulse要在50~200ms 以內才會啟動遊戲
-#  3. 多一行測試用程式碼：不管娃娃機是否故障，都會開啟刷卡功能，但release時要記得關掉
-#  4. 以為空間不夠，刪掉py檔一些用不到的註解程式碼
-# Based on smartpay 2024/12/5_HP_V0.02, Thomas 
+# 2024/12/18_HP_V0.03,  Sui 
+#  1. Sui_Branch初始化,從smartpay / alpha分支中建立Sui_Branch
+# Based on smartpay  2024/12/9_HP_V0.03, Thomas 
+
 
 # 定義狀態類型
 class MainStatus:
