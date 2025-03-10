@@ -294,54 +294,247 @@ gc.collect()
 
 
 
+# ########################
+# # 定義GPI中斷處理函式
+# # GPI（General Purpose Input）中斷處理
+# ###########################
+# # # 記錄時間變數（毫秒）
+# PAYOUT_falling_time = utime.ticks_ms()
+# PAYOUT_last_rising_time = utime.ticks_ms()
+# # test 防呆
+# # 設定50ms 防抖 避免干擾觸發
+# DEBOUNCE_TIME = 50
+# MIN_GAME_INTERVAL = 3000 #設定3秒內不可重複觸發遊戲
+# PAYOUT_triggerd = False # 避免重複觸發
+
+# ##　測試版
+# # 悠遊卡讀卡機訊號的中斷處理函式
+# def GPI_interrupt_handler(pin):
+#     global PAYOUT_falling_time, PAYOUT_last_rising_time, IO21value
+
+#     IO21value = not IO21value  # 變更 GPIO21 的狀態（高 <-> 低）
+#     GPO_IO21test.value(IO21value)  # 可能用於指示付款事件發生
+
+#     PAYOUT_value = GPIO_CardReader_PAYOUT.value()  # 讀取悠遊卡付款訊號
+#     PAYOUT_now_time = utime.ticks_ms()  # 紀錄目前時間（毫秒）
+    
+#     print(f"悠遊卡訊號變化: {PAYOUT_value}，時間: {PAYOUT_now_time} ms")
+
+#     if pin == GPIO_CardReader_PAYOUT:  # 檢查是否為付款訊號觸發
+#         print("PAYOUT收到中斷:", PAYOUT_value)
+#         if PAYOUT_value == 0:  # **負緣觸發**（代表開始付款）
+#             ## 在這裡加入訊號穩定判斷
+#             if utime.ticks_diff(PAYOUT_now_time, PAYOUT_falling_time) < DEBOUNCE_TIME:
+#                 print("[防呆誤觸] 負緣訊號過短，忽略此次訊號")
+#                 return
+            
+#             PAYOUT_falling_time = PAYOUT_now_time
+#             print("[PAYOUT]: 偵測到付款開始（負緣觸發）")
+
+#         elif PAYOUT_value == 1:  # **正緣觸發**（代表付款完成）
+#             if utime.ticks_diff(PAYOUT_now_time, PAYOUT_last_rising_time) < DEBOUNCE_TIME:
+#                 print("[防呆誤觸] 正緣訊號過短，忽略此次訊號")
+#                 return 
+            
+#             PAYOUT_rising_time = PAYOUT_now_time
+#             # 計算高電位時間
+#             PAYOUT_hipulse_time = utime.ticks_diff(PAYOUT_falling_time, PAYOUT_last_rising_time)
+#             # 計算低電位時間
+#             PAYOUT_lowpulse_time = utime.ticks_diff(PAYOUT_rising_time, PAYOUT_falling_time)
+#             print(f"偵測到付款完成（正緣觸發）")
+#             print("中斷PAYOUT收到Hi Pulse，寬度(ms):", PAYOUT_hipulse_time, ",和Low Pulse，寬度(ms):", PAYOUT_lowpulse_time)
+
+
+#             # **確認訊號是否合法**
+#             if (100 <= PAYOUT_hipulse_time >= 500) and (50 <= PAYOUT_lowpulse_time <= 200):
+#                 # 確保3秒內不會重複觸發遊戲 避免異常扣款
+#                 if not PAYOUT_triggerd and utime.ticks_diff(PAYOUT_now_time, PAYOUT_last_rising_time) > MIN_GAME_INTERVAL:
+#                     print("[PAYOUT]: 付款訊號有效，觸發娃娃機開始遊戲")
+#                     print("Pulse的Hi和Lo寬度都正確，啟動娃娃機遊戲")
+#                 #===================test==============
+#                 # 避免娃娃機啟動指令失敗 最多嘗試 MAX_RETRY 次，確保遊戲真的開始
+#                 #=====================================
+#                 success = False
+
+#                 for attempt in range(3):
+#                     print(f"[PAYOUT]: 發送遊戲啟動指令封包(第 {attempt + 1} 次)")
+#                     #uart_FEILOLI_send_packet(KindFEILOLIcmd.Send_Starting_once_game)  # **通知娃娃機開始遊戲**
+#                     uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
+
+#                     utime.sleep_ms(500)
+
+#                     # 確認遊戲是否成功啟動0x10 | 確保遊戲成功啟動才扣款
+#                     if claw_1.Status_of_Current_machine[0] == 0x10: #遊戲開始(未控制搖桿)
+#                         print("[PAYOUT] 遊戲啟動成功")
+#                         success = True
+#                         break
+#                     else:
+#                         print("[PAYOUT] 機台未回應，重新發送遊戲啟動指令")
+
+#                 if success:
+#                     print("[PAYOUT] 遊戲開始確認")
+#                     PAYOUT_triggerd = True # 表示遊戲已成功啟動
+#                 else: 
+#                     print("[遊戲啟動失敗]: 可能已扣款但遊戲未開始，請檢查機台")
+#                     #以發出警告音或記錄錯誤**
+#                     GPO_CardReader_EPAY_EN.value(0)  # 禁止支付，避免重複扣款
+#                     PAYOUT_triggerd = False #避免誤扣款
+#             else:
+#                 print("遊戲已啟動，忽略此次觸發")
+#         else:
+#             print("訊號異常，忽略此次啟動")
+
+#         PAYOUT_last_rising_time = PAYOUT_rising_time  # 更新最後一次的付款完成時間
+
+#         #3 秒內不允許重複觸發**
+#         utime.sleep_ms(3000)
+#         PAYOUT_triggerd = False  # 允許下一次遊戲啟動
+
+### 
 ########################
-# 定義GPI中斷處理函式
-# GPI（General Purpose Input）中斷處理
-###########################
-# # 記錄時間變數（毫秒）
+# 定義 GPI 中斷處理函式（避免扣款但遊戲未開始）
+########################
+
+# 記錄時間變數（毫秒）
 PAYOUT_falling_time = utime.ticks_ms()
 PAYOUT_last_rising_time = utime.ticks_ms()
 
-# 悠遊卡讀卡機訊號的中斷處理函式
+# 設定防呆機制
+DEBOUNCE_TIME = 50  # 50ms 防抖 避免干擾觸發
+MIN_GAME_INTERVAL = 3000  # 3 秒內不可重複觸發遊戲
+MAX_RETRY = 3  # 允許最大重試次數
+FAILSAFE_RETRY = 1  # 若遊戲啟動失敗，額外補救嘗試 1 次
+
+PAYOUT_triggerd = False  # 避免重複觸發
+GAME_STARTED = 0x10  # 遊戲開始的狀態碼
+
 def GPI_interrupt_handler(pin):
-    global PAYOUT_falling_time, PAYOUT_last_rising_time, IO21value
+    global PAYOUT_falling_time, PAYOUT_last_rising_time, PAYOUT_triggerd
 
-    IO21value = not IO21value  # 變更 GPIO21 的狀態（高 <-> 低）
-    GPO_IO21test.value(IO21value)  # 可能用於指示付款事件發生
-
-    PAYOUT_value = GPIO_CardReader_PAYOUT.value()  # 讀取悠遊卡付款訊號
-    PAYOUT_now_time = utime.ticks_ms()  # 紀錄目前時間（毫秒）
+    PAYOUT_value = GPIO_CardReader_PAYOUT.value()
+    PAYOUT_now_time = utime.ticks_ms()  # 取得當下時間
     
     print(f"悠遊卡訊號變化: {PAYOUT_value}，時間: {PAYOUT_now_time} ms")
 
-    if pin == GPIO_CardReader_PAYOUT:  # 檢查是否為付款訊號觸發
+    if pin == GPIO_CardReader_PAYOUT:
         print("PAYOUT收到中斷:", PAYOUT_value)
-        if PAYOUT_value == 0:  # **負緣觸發**（代表開始付款）
+        
+        if PAYOUT_value == 0:  # **下降沿 (開始付款)**
+            if utime.ticks_diff(PAYOUT_now_time, PAYOUT_falling_time) < DEBOUNCE_TIME:
+                print("[防呆] 下降沿訊號過短，忽略此次訊號")
+                return
             PAYOUT_falling_time = PAYOUT_now_time
-            print("偵測到付款開始（負緣觸發）")
+            print("[PAYOUT] 偵測到付款開始")
 
-        elif PAYOUT_value == 1:  # **正緣觸發**（代表付款完成）
+        elif PAYOUT_value == 1:  # **上升沿 (付款完成)**
+            if utime.ticks_diff(PAYOUT_now_time, PAYOUT_falling_time) < DEBOUNCE_TIME:
+                print("[防呆] 上升沿訊號過短，忽略此次訊號")
+                return 
+            
             PAYOUT_rising_time = PAYOUT_now_time
-            PAYOUT_hipulse_time = PAYOUT_falling_time - PAYOUT_last_rising_time  # 計算高電位時間
-            PAYOUT_lowpulse_time = PAYOUT_rising_time - PAYOUT_falling_time  # 計算低電位時間
-            print(f"偵測到付款完成（正緣觸發）")
-            print("中斷PAYOUT收到Hi Pulse，寬度(ms):", PAYOUT_hipulse_time, ",和Low Pulse，寬度(ms):", PAYOUT_lowpulse_time)
+            PAYOUT_hipulse_time = utime.ticks_diff(PAYOUT_falling_time, PAYOUT_last_rising_time)
+            PAYOUT_lowpulse_time = utime.ticks_diff(PAYOUT_rising_time, PAYOUT_falling_time)
+            
+            print("[PAYOUT] 偵測到付款完成")
+            print("高電位時間:", PAYOUT_hipulse_time, "ms | 低電位時間:", PAYOUT_lowpulse_time, "ms")
 
-            # **確認訊號是否合法**
-            if PAYOUT_hipulse_time >= 100 and (50 <= PAYOUT_lowpulse_time <= 200):
-                print("付款訊號有效，觸發娃娃機開始遊戲")
-                print("Pulse的Hi和Lo寬度都正確，啟動娃娃機遊戲")
-                #===================test==============
-                utime.sleep_ms(500)
-                #uart_FEILOLI_send_packet(KindFEILOLIcmd.Send_Starting_once_game)  # **通知娃娃機開始遊戲**
-                uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
-                
-                utime.sleep_ms(100)  # 確保有時間接收回傳資料
-                response = uart_manager.uart_FEILOLI.read()
-                print(f"[DEBUG] UART 回應: {response}")
+            # **檢查訊號是否合理**
+            if (100 <= PAYOUT_hipulse_time <= 500) and (50 <= PAYOUT_lowpulse_time <= 200):
+                if not PAYOUT_triggerd and utime.ticks_diff(PAYOUT_now_time, PAYOUT_last_rising_time) > MIN_GAME_INTERVAL:
+                    print("[PAYOUT] 訊號有效，觸發娃娃機開始遊戲")
+
+                    success = False  # 記錄遊戲是否成功啟動
+                    for attempt in range(MAX_RETRY):
+                        print(f"[PAYOUT] 嘗試啟動遊戲 (第 {attempt + 1} 次)")
+                        uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
+                        utime.sleep_ms(500)  # 等待機台回應
+
+                        #  **確認遊戲是否成功啟動**
+                        if claw_1.Status_of_Current_machine[0] == GAME_STARTED:
+                            print("[PAYOUT] 遊戲成功啟動！")
+                            success = True
+                            break
+                        else:
+                            print("[PAYOUT] 機台未回應，重新發送遊戲啟動指令")
+
+                    # **如果遊戲啟動成功，標記 `PAYOUT_triggerd = True`**
+                    if success:
+                        print("[PAYOUT] 遊戲啟動確認")
+                        PAYOUT_triggerd = True
+                    else:
+                        print("[PAYOUT] 遊戲啟動失敗，可能已扣款但遊戲未開始")
+                        GPO_CardReader_EPAY_EN.value(0)  # 停止支付，避免持續扣款
+
+                        # **補救措施：再試一次**
+                        for fail_attempt in range(FAILSAFE_RETRY):
+                            print(f"[PAYOUT] 啟動遊戲失敗，進行補救嘗試 (第 {fail_attempt + 1} 次)")
+                            uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
+                            utime.sleep_ms(500)
+                            if claw_1.Status_of_Current_machine[0] == GAME_STARTED:
+                                print("[PAYOUT] 補救成功！遊戲已開始")
+                                PAYOUT_triggerd = True
+                                break
+
+                        if not PAYOUT_triggerd:
+                            # 也許可以考慮在吃錢的時候做補救 透過mqtt啟動免費贈局? 
+                            print("[PAYOUT] 補救失敗，仍無法啟動遊戲")
+                            # **發送錯誤通知**
+                            #mqtt_manager.publish("claw_machine/error", "扣款成功但遊戲未啟動")
+                            # **點亮錯誤指示燈**
+                            # GPO_IO23test.value(1)
+                            # utime.sleep_ms(500)
+                            # GPO_IO23test.value(0)
+
             else:
-                print("Pulse的Hi或Lo寬度不正確，不進行任何動作")
-            PAYOUT_last_rising_time = PAYOUT_rising_time  # 更新最後一次的付款完成時間
+                print("[PAYOUT] 訊號異常，忽略此次啟動")
+
+            PAYOUT_last_rising_time = PAYOUT_rising_time  # 更新最後的付款完成時間
+
+            # **3 秒內不允許重複觸發**
+            utime.sleep_ms(3000)
+            PAYOUT_triggerd = False  # **只有在遊戲啟動成功時，才允許下一次觸發**
+
+
+# # 悠遊卡讀卡機訊號的中斷處理函式
+# def GPI_interrupt_handler(pin):
+#     global PAYOUT_falling_time, PAYOUT_last_rising_time, IO21value
+
+#     IO21value = not IO21value  # 變更 GPIO21 的狀態（高 <-> 低）
+#     GPO_IO21test.value(IO21value)  # 可能用於指示付款事件發生
+
+#     PAYOUT_value = GPIO_CardReader_PAYOUT.value()  # 讀取悠遊卡付款訊號
+#     PAYOUT_now_time = utime.ticks_ms()  # 紀錄目前時間（毫秒）
+    
+#     print(f"悠遊卡訊號變化: {PAYOUT_value}，時間: {PAYOUT_now_time} ms")
+
+#     if pin == GPIO_CardReader_PAYOUT:  # 檢查是否為付款訊號觸發
+#         print("PAYOUT收到中斷:", PAYOUT_value)
+#         if PAYOUT_value == 0:  # **負緣觸發**（代表開始付款）
+#             PAYOUT_falling_time = PAYOUT_now_time
+#             print("偵測到付款開始（負緣觸發）")
+
+#         elif PAYOUT_value == 1:  # **正緣觸發**（代表付款完成）
+#             PAYOUT_rising_time = PAYOUT_now_time
+#             PAYOUT_hipulse_time = PAYOUT_falling_time - PAYOUT_last_rising_time  # 計算高電位時間
+#             PAYOUT_lowpulse_time = PAYOUT_rising_time - PAYOUT_falling_time  # 計算低電位時間
+#             print(f"偵測到付款完成（正緣觸發）")
+#             print("中斷PAYOUT收到Hi Pulse，寬度(ms):", PAYOUT_hipulse_time, ",和Low Pulse，寬度(ms):", PAYOUT_lowpulse_time)
+
+#             # **確認訊號是否合法**
+#             if PAYOUT_hipulse_time >= 100 and (50 <= PAYOUT_lowpulse_time <= 200):
+#                 print("付款訊號有效，觸發娃娃機開始遊戲")
+#                 print("Pulse的Hi和Lo寬度都正確，啟動娃娃機遊戲")
+#                 #===================test==============
+#                 utime.sleep_ms(500)
+#                 #uart_FEILOLI_send_packet(KindFEILOLIcmd.Send_Starting_once_game)  # **通知娃娃機開始遊戲**
+#                 uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
+                
+#                 utime.sleep_ms(100)  # 確保有時間接收回傳資料
+#                 response = uart_manager.uart_FEILOLI.read()
+#                 print(f"[DEBUG] UART 回應: {response}")
+#             else:
+#                 print("Pulse的Hi或Lo寬度不正確，不進行任何動作")
+#             PAYOUT_last_rising_time = PAYOUT_rising_time  # 更新最後一次的付款完成時間
 
 # GPIO 中斷配置
 # 設定TV-1QR PAYOUT中斷，觸發條件為正緣和負緣
