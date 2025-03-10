@@ -1,4 +1,4 @@
-VERSION = "VO1_02a_debug"
+VERSION = "SVO2_01a_debug"
 import micropython
 print("Debugger:[Data_Collection_Main] 首行，記憶體:")
 micropython.mem_info()
@@ -189,11 +189,11 @@ print(f"開機秒數: {utime.ticks_ms() / 1000}")
 gc.collect()
 print(gc.mem_free())
 
-# 開啟 token 檔案
-#load_token()
-
+# =============================
+# WDT 初始化 旗標 & 計時
+# =============================
 WDT_feed_flag = 0
-wdt=WDT(timeout=1000*60*10)
+wdt=WDT(timeout=1000*60*10) #10分鐘超時
 
 print(f"1開機秒數: {utime.ticks_ms() / 1000}")
 
@@ -211,8 +211,8 @@ print(f"2開機秒數: {utime.ticks_ms() / 1000}")
 # GPIO配置
 # 卡機端的TV-1QR、觸控按鈕配置
 GPIO_CardReader_PAYOUT = Pin(18, Pin.IN, Pin.PULL_UP)
-GPO_CardReader_EPAY_EN = Pin(2, Pin.OUT, value=0)
-#GPO_CardReader_EPAY_EN.value(0)
+GPO_CardReader_EPAY_EN = Pin(2, Pin.OUT)
+GPO_CardReader_EPAY_EN.value(0)
 
 # 娃娃機端的投幣器、電眼配置
 #GPO_Claw_Coin_EN = Pin(5, Pin.OUT)
@@ -342,6 +342,7 @@ def GPI_interrupt_handler(pin):
             else:
                 print("Pulse的Hi或Lo寬度不正確，不進行任何動作")
             PAYOUT_last_rising_time = PAYOUT_rising_time  # 更新最後一次的付款完成時間
+
 # GPIO 中斷配置
 # 設定TV-1QR PAYOUT中斷，觸發條件為正緣和負緣
 GPIO_CardReader_PAYOUT.irq(trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING ), handler = GPI_interrupt_handler)

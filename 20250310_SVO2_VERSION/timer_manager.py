@@ -20,35 +20,62 @@ class TimerManager:
         # 定義時間計數
         ## server_report
         self.server_report_sales_period = 180 # 3分鐘 = 3*60 單位秒
+        #server_report_flag
         self.server_report_sales_counter = self.server_report_sales_period - 30  # 開機後第一次送MQTT會縮短到30秒
+
+        #　是否要發送數據的旗標
         self.server_report_flag = 0
 
         self.counter_of_WAITING_FEILOLI = 0
 
         #設置timer 
         self.server_report_timer = Timer(0)
+        self.server_check_timer = Timer(3)    # 這裡監測 `server_report_flag`旗標
         self.claw_check_timer = Timer(1)
         self.LCD_update_timer = Timer(2)
     
 
+    #定時回報
     def server_report_timer_callback(self, timer):
-        """ 監測 MQTT 連線狀態 & 觸發定期報告 """
+        """ 每1秒就+1 到達時間設定 就把server_report_flag設置為1& 觸發定期報告 """
         self.GPO_IO23test.value(1)  # GPIO 指示燈 ON (表示正在執行)
+
         if self.now_main_state.state in [self.MainStatus.NONE_FEILOLI, self.MainStatus.STANDBY_FEILOLI, self.MainStatus.WAITING_FEILOLI]:
             if self.mqtt_manager.client is not None:
                 self.mqtt_manager.check_messages()
 
             # 定期發送數據
             self.server_report_sales_counter = (self.server_report_sales_counter + 1) % self.server_report_sales_period
-            if self.server_report_sales_counter == 0:
-                print(f"Debugger:[timer_manager] wdt: {self.wdt}")
-                self.wdt.feed()  # 餵狗，防止系統重啟
-                self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('sales')
-                self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('status')
+
+            if self.server_report_sales_counter == 0: # 重置
+                self.server_report_flag = 1 # 回報
+
+
+            # if self.server_report_sales_counter == 0:
+            #     print(f"Debugger:[timer_manager] wdt: {self.wdt}")
+            #     self.wdt.feed()  # 餵狗，防止系統重啟
+            #     self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('sales')
+            #     self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('status')
 
             gc.collect()  # 清理記憶體
 
         self.GPO_IO23test.value(0)  # GPIO 指示燈 OFF (執行完成)
+
+    def server_check_timer_callback(self, timer):
+        """ 檢查server_report_flag旗標，若為 1 發送 MQTT """
+        if self.server_report_flag == 1:
+            print(f"Debugger:[timer_manager] wdt: {self.wdt}")
+
+            # 發送 MQTT 數據
+            if self.now_main_state.state == self.MainStatus.STANDBY_FEILOLI or self.now_main_state.state == self.MainStatus.WAITING_FEILOLI :
+                self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('sales')
+
+            self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('status')
+            self.WDT_feed_flag = 1
+
+            # 發送後，重置 `server_report_flag`
+            self.server_report_flag = 0
+            print("MQTT 發送完成，server_report_flag 重置為 0")
 
     def claw_check_timer_callback(self, timer):
         """ 定期檢查娃娃機狀態 """
