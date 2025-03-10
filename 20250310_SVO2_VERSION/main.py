@@ -196,9 +196,9 @@ if filename in file_list:
       # Senko初始化 執行ota 
       OTA = senko.Senko(
           user="hsilan-sui",  # Required
-          repo="wonderfulsmartpay",  # Required
-          branch="main",  # Optional: Defaults to "master"
-          working_dir="VO1_02a_version",  
+          repo="smartpay",  # Required
+          branch="Sui_Branch",  # Optional: Defaults to "master"
+          working_dir="20250310_SVO2_VERSION",  
           files=file_list
         )
     #   OTA = senko.Senko(

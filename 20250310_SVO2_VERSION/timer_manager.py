@@ -3,7 +3,7 @@ import utime
 import gc
 
 class TimerManager:
-    def __init__(self, now_main_state, MainStatus, wifi_manager, uart_manager, mqtt_manager, mqtt_handler, lcd_mgr, wdt, LCD_update_flag, claw_1, WDT_feed_flag, GPO_IO23test):
+    def __init__(self, now_main_state, MainStatus, wifi_manager, uart_manager, mqtt_manager, mqtt_handler, lcd_mgr, wdt, LCD_update_flag, claw_1,  GPO_IO23test):
         self.now_main_state = now_main_state
         self.MainStatus = MainStatus
         self.wifi_manager = wifi_manager
@@ -15,7 +15,6 @@ class TimerManager:
         self.LCD_update_flag = LCD_update_flag
         self.claw_1 = claw_1
         self.GPO_IO23test = GPO_IO23test  # GPIO 指示燈
-        self.WDT_feed_flag = WDT_feed_flag
 
         # 定義時間計數
         ## server_report
@@ -35,7 +34,7 @@ class TimerManager:
         self.LCD_update_timer = Timer(2)
     
 
-    #定時回報
+    #定時回報計數
     def server_report_timer_callback(self, timer):
         """ 每1秒就+1 到達時間設定 就把server_report_flag設置為1& 觸發定期報告 """
         self.GPO_IO23test.value(1)  # GPIO 指示燈 ON (表示正在執行)
@@ -45,9 +44,11 @@ class TimerManager:
                 self.mqtt_manager.check_messages()
 
             # 定期發送數據
-            self.server_report_sales_counter = (self.server_report_sales_counter + 1) % self.server_report_sales_period
-
-            if self.server_report_sales_counter == 0: # 重置
+            # 當計數器達到server_report_sales_period 才扭轉旗標 來觸發mqtt發布
+            self.server_report_sales_counter += 1
+            if self.server_report_sales_counter >= self.server_report_sales_period:
+                self.server_report_sales_counter = 0 #計數器歸零
+                 # 設置回報旗標
                 self.server_report_flag = 1 # 回報
 
 
@@ -57,7 +58,6 @@ class TimerManager:
             #     self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('sales')
             #     self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('status')
 
-            gc.collect()  # 清理記憶體
 
         self.GPO_IO23test.value(0)  # GPIO 指示燈 OFF (執行完成)
 
@@ -66,16 +66,21 @@ class TimerManager:
         if self.server_report_flag == 1:
             print(f"Debugger:[timer_manager] wdt: {self.wdt}")
 
+            # 發送後，先重置 `server_report_flag`
+            self.server_report_flag = 0
+            print("MQTT 發送完成，server_report_flag 重置為 0")
+
+
             # 發送 MQTT 數據
             if self.now_main_state.state == self.MainStatus.STANDBY_FEILOLI or self.now_main_state.state == self.MainStatus.WAITING_FEILOLI :
                 self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('sales')
 
             self.mqtt_manager.mqtt_handler.publish_MQTT_claw_data('status')
-            self.WDT_feed_flag = 1
+            
 
-            # 發送後，重置 `server_report_flag`
-            self.server_report_flag = 0
-            print("MQTT 發送完成，server_report_flag 重置為 0")
+            #只要 MQTT 送出成功，就 wdt.feed()，確保 MQTT 可能導致的延遲不會影響 WDT 超時
+            self.wdt.feed()
+            print("WDT 已餵狗，MQTT 發送完成")
 
     def claw_check_timer_callback(self, timer):
         """ 定期檢查娃娃機狀態 """
@@ -179,6 +184,8 @@ class TimerManager:
     def start_timers(self):
         # 設定1秒鐘 = 1000（單位：毫秒）
         self.server_report_timer.init(period=1000, mode=Timer.PERIODIC, callback=self.server_report_timer_callback)
+
+        self.server_check_timer.init(period=1000, mode=Timer.PERIODIC, callback=self.server_check_timer_callback)  # 每秒檢查 `server_report_flag`
 
         # 設定10秒鐘 = 10*1000（單位：毫秒）
         self.claw_check_timer.init(period=10000, mode=Timer.PERIODIC, callback=self.claw_check_timer_callback)

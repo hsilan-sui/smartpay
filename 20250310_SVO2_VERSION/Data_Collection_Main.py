@@ -192,7 +192,7 @@ print(gc.mem_free())
 # =============================
 # WDT 初始化 旗標 & 計時
 # =============================
-WDT_feed_flag = 0
+#WDT_feed_flag = 0
 wdt=WDT(timeout=1000*60*10) #10分鐘超時
 
 print(f"1開機秒數: {utime.ticks_ms() / 1000}")
@@ -356,7 +356,7 @@ GPIO_CardReader_PAYOUT.irq(trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING ), handle
 # ========================
 # 初始化timer
 # =========================
-timer_manager = TimerManager(now_main_state, MainStatus, wifi_manager, uart_manager, mqtt_manager, mqtt_handler, lcd_mgr, wdt, LCD_update_flag, claw_1, WDT_feed_flag,GPO_IO23test)
+timer_manager = TimerManager(now_main_state, MainStatus, wifi_manager, uart_manager, mqtt_manager, mqtt_handler, lcd_mgr, wdt, LCD_update_flag, claw_1, GPO_IO23test)
 
 gc.collect()
 # print("Debugger:[準備執行緒] 記憶體:")
@@ -383,10 +383,10 @@ main_while_delay_seconds = 1
 while True:
 
     utime.sleep_ms(500)
-    if WDT_feed_flag == 1 :
-        WDT_feed_flag = 0
-        wdt.feed()
-        print('WDT fed! 開機秒數:', utime.ticks_ms() / 1000)
+    # if WDT_feed_flag == 1 :
+    #     WDT_feed_flag = 0
+    #     wdt.feed()
+    #     print('WDT fed! 開機秒數:', utime.ticks_ms() / 1000)
 
     current_time = utime.ticks_ms()
     if (utime.ticks_diff(current_time, last_time) >= main_while_delay_seconds * 1000):
