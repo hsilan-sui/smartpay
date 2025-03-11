@@ -10,22 +10,28 @@ import gc
 import _thread
 import ujson
 import machine
+#from machine import SPI, Pin, WDT
+from machine import  Pin, SPI, Timer, WDT
 #外部依賴
-from machine import UART, Timer, WDT
-#from machine import UART, Pin, SPI, Timer, WDT
+#from machine import UART, Timer, WDT
+
 from umqtt.simple import MQTTClient
 #本地
+
 from uart_handler import UartHandler
 from uart_manager import UartManager
 from mqtt_manager import MqttManager
 from timer_manager import TimerManager
 from received_claw_data import ReceivedClawData
 
+from cardreader_manager import CardReaderManager
+
+
 # =============================
 # wifi連線 tets ok 
 # =============================
-# print(f"[Data]: wifi_manager: {wifi_manager}")
-# print(f"[Data]: network_info:{network_info},{wifi_manager.ssid}")
+print(f"[Data]: wifi_manager: {wifi_manager}")
+print(f"[Data]: network_info:{network_info},{wifi_manager.ssid}")
 
 # =============================
 # 狀態類型
@@ -208,14 +214,19 @@ LCD_update_flag = {
 
 print(f"2開機秒數: {utime.ticks_ms() / 1000}")
 
-# GPIO配置
-# 卡機端的TV-1QR、觸控按鈕配置
-GPIO_CardReader_PAYOUT = Pin(18, Pin.IN, Pin.PULL_UP)
-GPO_CardReader_EPAY_EN = Pin(2, Pin.OUT)
-GPO_CardReader_EPAY_EN.value(0)
+# # GPIO配置
+# # 卡機端的TV-1QR、觸控按鈕配置
+#先創建 CardReaderManager (先不給 uart_manager 和 mqtt_manager)
+#======================================
+cardreader_manager = CardReaderManager()
+#=======================================
+# GPIO_CardReader_PAYOUT = Pin(18, Pin.IN, Pin.PULL_UP)
+# GPO_CardReader_EPAY_EN = Pin(2, Pin.OUT)
+# GPO_CardReader_EPAY_EN.value(0)
 
 # 娃娃機端的投幣器、電眼配置
 #GPO_Claw_Coin_EN = Pin(5, Pin.OUT)
+
 
 
 
@@ -236,7 +247,7 @@ mq_client_1 = None
 # UART配置
 # print("Debugger:[Step 1: 初始化 UART Handler] 記憶體:")
 # micropython.mem_info()
-uart_handler = UartHandler(claw_1, None, LCD_update_flag, now_main_state, GPO_CardReader_EPAY_EN) # 但先不設定 mqtt_handler=None
+uart_handler = UartHandler(claw_1, None, LCD_update_flag, now_main_state, cardreader_manager.GPO_CardReader_EPAY_EN) # 但先不設定 mqtt_handler=None
 
 # print("Debugger:[Step 2: 初始化 UART Manager] 記憶體:")
 # micropython.mem_info()
@@ -291,174 +302,16 @@ mqtt_manager.uart_manager = uart_manager
 
 gc.collect()
 
-
-
-
-# ########################
-# # 定義GPI中斷處理函式
-# # GPI（General Purpose Input）中斷處理
-# ###########################
-# # # 記錄時間變數（毫秒）
-# PAYOUT_falling_time = utime.ticks_ms()
-# PAYOUT_last_rising_time = utime.ticks_ms()
-# # test 防呆
-# # 設定50ms 防抖 避免干擾觸發
-# DEBOUNCE_TIME = 50
-# MIN_GAME_INTERVAL = 3000 #設定3秒內不可重複觸發遊戲
-# PAYOUT_triggerd = False # 避免重複觸發
-
-# ##　測試版
-# # 悠遊卡讀卡機訊號的中斷處理函式
-# def GPI_interrupt_handler(pin):
-#     global PAYOUT_falling_time, PAYOUT_last_rising_time, IO21value
-
-#     IO21value = not IO21value  # 變更 GPIO21 的狀態（高 <-> 低）
-#     GPO_IO21test.value(IO21value)  # 可能用於指示付款事件發生
-
-#     PAYOUT_value = GPIO_CardReader_PAYOUT.value()  # 讀取悠遊卡付款訊號
-#     PAYOUT_now_time = utime.ticks_ms()  # 紀錄目前時間（毫秒）
-    
-#     print(f"悠遊卡訊號變化: {PAYOUT_value}，時間: {PAYOUT_now_time} ms")
-
-#     if pin == GPIO_CardReader_PAYOUT:  # 檢查是否為付款訊號觸發
-#         print("PAYOUT收到中斷:", PAYOUT_value)
-#         if PAYOUT_value == 0:  # **負緣觸發**（代表開始付款）
-#             ## 在這裡加入訊號穩定判斷
-#             if utime.ticks_diff(PAYOUT_now_time, PAYOUT_falling_time) < DEBOUNCE_TIME:
-#                 print("[防呆誤觸] 負緣訊號過短，忽略此次訊號")
-#                 return
-            
-#             PAYOUT_falling_time = PAYOUT_now_time
-#             print("[PAYOUT]: 偵測到付款開始（負緣觸發）")
-
-#         elif PAYOUT_value == 1:  # **正緣觸發**（代表付款完成）
-#             if utime.ticks_diff(PAYOUT_now_time, PAYOUT_last_rising_time) < DEBOUNCE_TIME:
-#                 print("[防呆誤觸] 正緣訊號過短，忽略此次訊號")
-#                 return 
-            
-#             PAYOUT_rising_time = PAYOUT_now_time
-#             # 計算高電位時間
-#             PAYOUT_hipulse_time = utime.ticks_diff(PAYOUT_falling_time, PAYOUT_last_rising_time)
-#             # 計算低電位時間
-#             PAYOUT_lowpulse_time = utime.ticks_diff(PAYOUT_rising_time, PAYOUT_falling_time)
-#             print(f"偵測到付款完成（正緣觸發）")
-#             print("中斷PAYOUT收到Hi Pulse，寬度(ms):", PAYOUT_hipulse_time, ",和Low Pulse，寬度(ms):", PAYOUT_lowpulse_time)
-
-
-#             # **確認訊號是否合法**
-#             if (100 <= PAYOUT_hipulse_time >= 500) and (50 <= PAYOUT_lowpulse_time <= 200):
-#                 # 確保3秒內不會重複觸發遊戲 避免異常扣款
-#                 if not PAYOUT_triggerd and utime.ticks_diff(PAYOUT_now_time, PAYOUT_last_rising_time) > MIN_GAME_INTERVAL:
-#                     print("[PAYOUT]: 付款訊號有效，觸發娃娃機開始遊戲")
-#                     print("Pulse的Hi和Lo寬度都正確，啟動娃娃機遊戲")
-#                 #===================test==============
-#                 # 避免娃娃機啟動指令失敗 最多嘗試 MAX_RETRY 次，確保遊戲真的開始
-#                 #=====================================
-#                 success = False
-
-#                 for attempt in range(3):
-#                     print(f"[PAYOUT]: 發送遊戲啟動指令封包(第 {attempt + 1} 次)")
-#                     #uart_FEILOLI_send_packet(KindFEILOLIcmd.Send_Starting_once_game)  # **通知娃娃機開始遊戲**
-#                     uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
-
-#                     utime.sleep_ms(500)
-
-#                     # 確認遊戲是否成功啟動0x10 | 確保遊戲成功啟動才扣款
-#                     if claw_1.Status_of_Current_machine[0] == 0x10: #遊戲開始(未控制搖桿)
-#                         print("[PAYOUT] 遊戲啟動成功")
-#                         success = True
-#                         break
-#                     else:
-#                         print("[PAYOUT] 機台未回應，重新發送遊戲啟動指令")
-
-#                 if success:
-#                     print("[PAYOUT] 遊戲開始確認")
-#                     PAYOUT_triggerd = True # 表示遊戲已成功啟動
-#                 else: 
-#                     print("[遊戲啟動失敗]: 可能已扣款但遊戲未開始，請檢查機台")
-#                     #以發出警告音或記錄錯誤**
-#                     GPO_CardReader_EPAY_EN.value(0)  # 禁止支付，避免重複扣款
-#                     PAYOUT_triggerd = False #避免誤扣款
-#             else:
-#                 print("遊戲已啟動，忽略此次觸發")
-#         else:
-#             print("訊號異常，忽略此次啟動")
-
-#         PAYOUT_last_rising_time = PAYOUT_rising_time  # 更新最後一次的付款完成時間
-
-#         #3 秒內不允許重複觸發**
-#         utime.sleep_ms(3000)
-#         PAYOUT_triggerd = False  # 允許下一次遊戲啟動
-
-### 
 ########################
 # 定義 GPI 中斷處理函式（避免扣款但遊戲未開始）
 # 吃錢
-########################
+#######################
+# 測試
+#######################
+#等所有物件初始化完成後，再設定 CardReaderManager 的相依性
+cardreader_manager.set_dependencies(uart_manager, mqtt_manager)
 
-# # 記錄時間變數（毫秒）
-PAYOUT_falling_time = utime.ticks_ms()
-PAYOUT_last_rising_time = utime.ticks_ms()
 
-GAME_STARTED = 0x10
-
-# # 悠遊卡讀卡機訊號的中斷處理函式
-def GPI_interrupt_handler(pin):
-    global PAYOUT_falling_time, PAYOUT_last_rising_time, IO21value
-
-    IO21value = not IO21value  # 變更 GPIO21 的狀態（高 <-> 低）
-    GPO_IO21test.value(IO21value)  # 可能用於指示付款事件發生
-
-    PAYOUT_value = GPIO_CardReader_PAYOUT.value()  # 讀取悠遊卡付款訊號
-    PAYOUT_now_time = utime.ticks_ms()  # 紀錄目前時間（毫秒）
-    
-    print(f"悠遊卡訊號變化: {PAYOUT_value}，時間: {PAYOUT_now_time} ms")
-
-    if pin == GPIO_CardReader_PAYOUT:  # 檢查是否為付款訊號觸發
-        print("PAYOUT收到中斷:", PAYOUT_value)
-        if PAYOUT_value == 0:  # **負緣觸發**（代表開始付款）
-            PAYOUT_falling_time = PAYOUT_now_time
-            print("偵測到付款開始（負緣觸發）")
-
-        elif PAYOUT_value == 1:  # **正緣觸發**（代表付款完成）
-            PAYOUT_rising_time = PAYOUT_now_time
-            PAYOUT_hipulse_time = PAYOUT_falling_time - PAYOUT_last_rising_time  # 計算高電位時間
-            PAYOUT_lowpulse_time = PAYOUT_rising_time - PAYOUT_falling_time  # 計算低電位時間
-            print(f"偵測到付款完成（正緣觸發）")
-            print("中斷PAYOUT收到Hi Pulse，寬度(ms):", PAYOUT_hipulse_time, ",和Low Pulse，寬度(ms):", PAYOUT_lowpulse_time)
-
-            # **確認訊號是否合法**
-            if PAYOUT_hipulse_time >= 100 and (50 <= PAYOUT_lowpulse_time <= 200):
-                print("付款訊號有效，觸發娃娃機開始遊戲")
-                print("Pulse的Hi和Lo寬度都正確，啟動娃娃機遊戲")
-                #===================test==============
-                utime.sleep_ms(500)
-                #uart_FEILOLI_send_packet(KindFEILOLIcmd.Send_Starting_once_game)  
-                # 發動遊戲封包 通知娃娃機開始遊戲
-                uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
-
-                # 發送詢問機台狀態封包
-                uart_manager.send_packet(KindFEILOLIcmd.Ask_Machine_status)
-                
-                utime.sleep_ms(100)  # 確保有時間接收回傳資料
-        
-                if claw_1.Status_of_Current_machine[0] == GAME_STARTED:
-                    print(f"[PAYOUT] 遊戲已開始: {claw_1.Status_of_Current_machine[0]}")
-                # else: 
-                #     print(f"[PAYOUT] 再次發送遊戲封包: {claw_1.Status_of_Current_machine[0]}")
-                    # 發動遊戲封包 通知娃娃機開始遊戲
-                    #uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
-                # else:
-                #     uart_manager.send_packet(KindFEILOLIcmd.Send_Starting_once_game)
-                response = uart_manager.uart_FEILOLI.read()
-                print(f"[DEBUG] UART 回應: {response}")
-            else:
-                print("Pulse的Hi或Lo寬度不正確，不進行任何動作")
-            PAYOUT_last_rising_time = PAYOUT_rising_time  # 更新最後一次的付款完成時間
-
-# # GPIO 中斷配置
-# # 設定TV-1QR PAYOUT中斷，觸發條件為正緣和負緣
-# GPIO_CardReader_PAYOUT.irq(trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING ), handler = GPI_interrupt_handler)
 
 ## ==============
 # 避免在初始化階段因物件還未建立好就被呼叫，導致 NoneType 錯誤。
@@ -484,13 +337,15 @@ utime.sleep(2)
 
 # GPIO 中斷配置
 # 設定TV-1QR PAYOUT中斷，觸發條件為正緣和負緣
-GPIO_CardReader_PAYOUT.irq(trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING ), handler = GPI_interrupt_handler)
-
+#GPIO_CardReader_PAYOUT.irq(trigger = (Pin.IRQ_FALLING | Pin.IRQ_RISING ), handler = GPI_interrupt_handler)
+#啟動 GPIO 中斷
+cardreader_manager.setup_gpio_interrupt()
 # ========================
 # 執行timer callback
 # =========================
 timer_manager.start_timers()
 
+gc.collect()
 print("[Data while之前]記憶體:")
 micropython.mem_info()
 
@@ -539,6 +394,7 @@ while True:
                     print('MQTT subscription has failed')
             gc.collect()
             print(gc.mem_free())
+
 
         elif now_main_state.state == MainStatus.NONE_FEILOLI:
             print('\n\rnow_main_state: MQTT is OK (FEILOLI UART is not OK), 開機秒數:', current_time / 1000)

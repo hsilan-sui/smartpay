@@ -3,15 +3,15 @@ import utime
 from utime import sleep
 import os
 
-from machine import SPI, Pin, WDT
+import machine
+from machine import Pin, WDT
 import network
 import ntptime
 from BN165DKBDriver import readKBData
-import machine
+
 #　模組
 from lcd_manager import LCDManager
-#from wifi_manager import WiFiManager 
-from wifimgr import WiFiManager 
+from wifimgr import WiFiManager
 
 
 
@@ -19,9 +19,10 @@ print(f"\n\r[main] 開始執行main.py初始化，開機秒數: {utime.ticks_ms(
 gc.collect()
 print(gc.mem_free())
 
-
-
-GPO_CardReader_EPAY_EN = Pin(2, Pin.OUT, value=0)#第三個參數是預設不輸出電 #GPO_CardReader_EPAY_EN.value(0)
+# GPIO配置
+# 卡機端的TV-1QR、觸控按鈕配置
+# GPIO_CardReader_PAYOUT = Pin(18, Pin.IN, Pin.PULL_UP)
+# GPO_CardReader_EPAY_EN = Pin(2, Pin.OUT, value=0)#第三個參數是預設不輸出電 #GPO_CardReader_EPAY_EN.value(0)
 #GPO_CardReader_EPAY_EN.value(0)
 
 LCD_EN = Pin(27, Pin.OUT, value=1)#第三個參數是預設輸出電 #LCD_EN.value(1)
