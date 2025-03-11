@@ -46,7 +46,7 @@ class Senko:
 
         for file in self.files:
             ## ==== 這行print加一下會比較好 等到執行到while內的gc 比較有餘裕可以釋放記憶體 ====
-            print(f"Debugger:[while之前]:{gc.mem_free()}")
+            print(f"Debugger:[while之前]:{gc.mem_free()},{file}")
             ## ===============================================
             while(gc.mem_free()<60000):
                 gc.collect()
