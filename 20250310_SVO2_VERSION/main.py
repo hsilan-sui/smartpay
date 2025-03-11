@@ -10,7 +10,8 @@ from BN165DKBDriver import readKBData
 import machine
 #　模組
 from lcd_manager import LCDManager
-from wifi_manager import WiFiManager 
+#from wifi_manager import WiFiManager 
+from wifimgr import WiFiManager 
 
 
 
