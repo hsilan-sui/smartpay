@@ -1,7 +1,7 @@
 VERSION = "SVO2_01a_debug"
 import micropython
-print("Debugger:[Data_Collection_Main] 首行，記憶體:")
-micropython.mem_info()
+# print("Debugger:[Data_Collection_Main] 首行，記憶體:")
+# micropython.mem_info()
 
 #標準庫
 import os
@@ -33,6 +33,9 @@ from cardreader_manager import CardReaderManager
 print(f"[Data]: wifi_manager: {wifi_manager}")
 print(f"[Data]: network_info:{network_info},{wifi_manager.ssid}")
 
+#======================================
+cardreader_manager = CardReaderManager()
+#=======================================
 # =============================
 # 狀態類型
 # =============================
@@ -56,7 +59,7 @@ class MainStateMachine:
         self.state = MainStatus.NONE_WIFI
         # 以下執行"狀態機初始化"相應的操作
         print('\n\rInit, MainStatus: NONE_WIFI')
-        GPO_CardReader_EPAY_EN.value(0)   # Wi-Fi未連線、而且娃娃機連線未確定，暫停卡機支付功能
+        cardreader_manager.GPO_CardReader_EPAY_EN.value(0)   # Wi-Fi未連線、而且娃娃機連線未確定，暫停卡機支付功能
         global main_while_delay_seconds, LCD_update_flag
         main_while_delay_seconds = 1
         LCD_update_flag['Uniform'] = True
@@ -67,7 +70,7 @@ class MainStateMachine:
             self.state = MainStatus.NONE_WIFI
             # 以下執行"未連上WiFi後"相應的操作
             print('\n\rAction: WiFi is disconnect, MainStatus: NONE_WIFI')
-            GPO_CardReader_EPAY_EN.value(0)   # Wi-Fi未連線、而且娃娃機連線未確定，暫停卡機支付功能
+            cardreader_manager.GPO_CardReader_EPAY_EN.value(0)   # Wi-Fi未連線、而且娃娃機連線未確定，暫停卡機支付功能
             main_while_delay_seconds = 1
             LCD_update_flag['WiFi'] = True
 
@@ -75,7 +78,7 @@ class MainStateMachine:
             self.state = MainStatus.NONE_INTERNET
             # 以下執行"連上WiFi後"相應的操作
             print('\n\rAction: WiFi is OK, MainStatus: NONE_INTERNET')
-            GPO_CardReader_EPAY_EN.value(0)   # Wi-Fi已連線、但娃娃機連線未確定，暫停卡機支付功能
+            cardreader_manager.GPO_CardReader_EPAY_EN.value(0)   # Wi-Fi已連線、但娃娃機連線未確定，暫停卡機支付功能
             main_while_delay_seconds = 1
             LCD_update_flag['WiFi'] = True
 
@@ -83,7 +86,7 @@ class MainStateMachine:
             self.state = MainStatus.NONE_MQTT
             # 以下執行"連上Internet後"相應的操作
             print('\n\rAction: Internet is OK, MainStatus: NONE_MQTT')
-            GPO_CardReader_EPAY_EN.value(0)   # 外網已連線、但娃娃機連線未確定，暫停卡機支付功能
+            cardreader_manager.GPO_CardReader_EPAY_EN.value(0)   # 外網已連線、但娃娃機連線未確定，暫停卡機支付功能
             main_while_delay_seconds = 1
             LCD_update_flag['WiFi'] = True
 
@@ -91,7 +94,7 @@ class MainStateMachine:
             self.state = MainStatus.NONE_FEILOLI
             # 以下執行"連上MQTT後"相應的操作
             print('\n\rAction: MQTT is OK, MainStatus: NONE_FEILOLI')
-            GPO_CardReader_EPAY_EN.value(0)   # MQTT已連線、但娃娃機連線未確定，暫停卡機支付功能
+            cardreader_manager.GPO_CardReader_EPAY_EN.value(0)   # MQTT已連線、但娃娃機連線未確定，暫停卡機支付功能
             main_while_delay_seconds = 10
             LCD_update_flag['WiFi'] = True
             LCD_update_flag['Claw_State'] = True
@@ -113,7 +116,7 @@ class MainStateMachine:
             self.state = MainStatus.NONE_FEILOLI
             # 以下執行"等待失敗後"相應的操作
             print('\n\rAction: FEILOLI UART is not OK, MainStatus: NONE_FEILOLI')
-            GPO_CardReader_EPAY_EN.value(0)   # 娃娃機無法連線，暫停卡機支付功能
+            cardreader_manager.GPO_CardReader_EPAY_EN.value(0)   # 娃娃機無法連線，暫停卡機支付功能
             main_while_delay_seconds = 10    
             LCD_update_flag['Claw_State'] = True
 
@@ -121,7 +124,7 @@ class MainStateMachine:
             self.state = MainStatus.NONE_MQTT
             # 以下執行"MQTT失敗後"相應的操作
             print('\n\rAction: MQTT is not OK, MainStatus: NONE_MQTT')
-            GPO_CardReader_EPAY_EN.value(0)   # MQTT無法連線，暫停卡機支付功能
+            cardreader_manager.GPO_CardReader_EPAY_EN.value(0)   # MQTT無法連線，暫停卡機支付功能
             main_while_delay_seconds = 1
             LCD_update_flag['WiFi'] = True
 
@@ -159,15 +162,7 @@ def get_file_info(filename):
 
 
 ##### GPO ###############################################    
-# 這段主要在設定GPIO 通用輸入輸出 並監聽悠遊卡付款訊號  
-# 偵測悠遊卡付款時 ===> 會觸發娃娃機開始遊戲
-# GPIO 21 23為輸出模式
-# GPIO21 (GPO_IO21test) 可能是 除錯燈號或測試訊號
-# GPIO23 (GPO_IO23test) 可能是 悠遊卡付款成功的指示訊號
-# GPO_IO23test.value(1) → sleep(100ms) → GPO_IO23test.value(0) 代表 觸發一個短暫的訊號脈衝，可能用於：
-# 通知其他元件付款成功
-# 觸發 LED 指示燈
-# 進行訊號測
+
 # ##### GPO ###############################################  
 # 
 # 設定GPIO21 為輸出 初始值為0 
@@ -215,20 +210,6 @@ LCD_update_flag = {
 print(f"2開機秒數: {utime.ticks_ms() / 1000}")
 
 # # GPIO配置
-# # 卡機端的TV-1QR、觸控按鈕配置
-#先創建 CardReaderManager (先不給 uart_manager 和 mqtt_manager)
-#======================================
-cardreader_manager = CardReaderManager()
-#=======================================
-# GPIO_CardReader_PAYOUT = Pin(18, Pin.IN, Pin.PULL_UP)
-# GPO_CardReader_EPAY_EN = Pin(2, Pin.OUT)
-# GPO_CardReader_EPAY_EN.value(0)
-
-# 娃娃機端的投幣器、電眼配置
-#GPO_Claw_Coin_EN = Pin(5, Pin.OUT)
-
-
-
 
 # 創建狀態機
 now_main_state = MainStateMachine()
@@ -244,9 +225,7 @@ mq_client_1 = None
 # claw_1 也先用參數傳遞(娃娃機數據)
 #創建 UART Handler，讓它持有 `mqtt_handler`
 #==============
-# UART配置
-# print("Debugger:[Step 1: 初始化 UART Handler] 記憶體:")
-# micropython.mem_info()
+
 uart_handler = UartHandler(claw_1, None, LCD_update_flag, now_main_state, cardreader_manager.GPO_CardReader_EPAY_EN) # 但先不設定 mqtt_handler=None
 
 # print("Debugger:[Step 2: 初始化 UART Manager] 記憶體:")
@@ -280,18 +259,7 @@ mqtt_manager = MqttManager(
 
 
 
-#==============
 
-#==============
-# print("Debugger:[Step 4: 相互依賴解耦與物件關聯初始化] 記憶體:")
-# micropython.mem_info()
-# gc.collect()
-
-## ==============
-# 避免在初始化階段因物件還未建立好就被呼叫，導致 NoneType 錯誤。
-# 等到所有物件都建立完成後，再進行後設綁定，確保每個類別都能正確存取到其他類別的實體物件
-## ==============
-## 這時候 `mqtt_manager` 已經初始化完畢，直接取出 `mqtt_manager.mqtt_handler`
 mqtt_handler = mqtt_manager.mqtt_handler  # 直接用 `MqttManager` 內建的 `MqttHandler`
 
 uart_manager.mqtt_handler = mqtt_handler
@@ -328,7 +296,7 @@ gc.collect()
 # print("Debugger:[準備執行緒] 記憶體:")
 # micropython.mem_info()
 
-_thread.stack_size(16 * 1024)  # 只需設置一次
+_thread.stack_size(8 * 1024)  # 只需設置一次
 #_thread.stack_size(20 * 1024)  # 只需設置一次
 _thread.start_new_thread(uart_manager.receive_packet, ())
 
