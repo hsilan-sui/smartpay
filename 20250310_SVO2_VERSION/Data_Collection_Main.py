@@ -26,7 +26,7 @@ from received_claw_data import ReceivedClawData
 
 from cardreader_manager import CardReaderManager
 
-
+print(f"{wifi_manager}")
 # =============================
 # wifi連線 tets ok 
 # =============================
@@ -34,7 +34,11 @@ print(f"[Data]: wifi_manager: {wifi_manager}")
 print(f"[Data]: network_info:{network_info},{wifi_manager.ssid}")
 
 #======================================
-cardreader_manager = CardReaderManager()
+try:
+    cardreader_manager = CardReaderManager()
+    print("CardReaderManager 初始化成功")
+except Exception as e:
+    print("CardReaderManager 初始化失敗:", e)
 #=======================================
 # =============================
 # 狀態類型

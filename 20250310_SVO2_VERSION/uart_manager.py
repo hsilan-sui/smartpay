@@ -29,7 +29,7 @@ class UartManager:
             'GiftOuttimes': 11,
         }
 
-        print(f"[UartHandler] 初始化完成: {self.uart_FEILOLI}")
+        #print(f"[UartHandler] 初始化完成: {self.uart_FEILOLI}")
 
     def send_packet(self, command, parameters=None):
         """發送 UART 指令至娃娃機"""
